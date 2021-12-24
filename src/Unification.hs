@@ -1,23 +1,37 @@
 {-# Language ScopedTypeVariables #-}
-module Unification (unify) where
-
+module Unification (unify, UError(..)) where
+import Prelude hiding (error)
 import Lang
 import TypeConstraints
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Reader
+import qualified Result as R
 
-type Context a = StateT VarMap Maybe a
+
+type Result = R.Result Error 
+
+type Error = UError
+
+data UError 
+    = InEq Type Type
+    | UnboundTyVar TypeName
+    deriving (Show, Eq)
+
+type Context a = StateT VarMap Result a
 
 type VarMap = [(TypeName, Type)]
 
 newtype CheckedType = CT Type
     deriving Show
 
+error :: Error -> Context a 
+error e = lift $ R.Err e
+
 uncheck (CT t) = t
 
 
-unify :: [Constraint] -> Type -> Maybe Type
+unify :: [Constraint] -> Type -> Result Type
 unify cs t = evalStateT (unifyTopLevel cs t) []
 
 unifyTopLevel :: [Constraint] -> Type -> Context Type
@@ -50,7 +64,7 @@ unifyRound (CT t1) (CT t2) =
         (anything, TyVar x) -> do
             bind x anything
             none
-        _ -> fail ""
+        (t1,t2) -> error $ InEq t1 t2
 
     
 none :: Context [Constraint]
@@ -68,7 +82,7 @@ find t = return $ CT t
 resolve :: Type -> Context Type
 resolve (TyVar n) = do 
     env <- get
-    ans <- lift $ lookup n env
+    ans <- lookup n env `R.orElse` error (UnboundTyVar n)
     resolve ans
 resolve Unit = return Unit
 resolve Integer = return Integer

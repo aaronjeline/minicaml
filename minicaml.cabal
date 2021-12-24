@@ -25,11 +25,15 @@ source-repository head
 
 library
   exposed-modules:
+      Interp
+      K
       Lang
       Lib
+      Result
       Typecheck
       TypeConstraints
       Unification
+      Vector
   other-modules:
       Paths_minicaml
   hs-source-dirs:
